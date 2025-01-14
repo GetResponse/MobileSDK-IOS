@@ -7,6 +7,9 @@ https://github.com/GetResponse/MobileSDK-IOS
 
 ## Setup
 
+Full developers guide available on:
+https://www.getresponse.com/help/mobile-apps-technical-documentation-for-ios.html
+
 First, configure SDK:
 
 ```swift
@@ -69,4 +72,4 @@ await GetResponsePushNotificationService.shared.removeConsent()
 
 
 ## License
-See [LICENSE.TXT](LICENSE.TXT)
+See [LICENSE.TXT](LICENSE.txt)
