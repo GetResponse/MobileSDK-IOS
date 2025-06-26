@@ -1,14 +1,15 @@
 import Foundation
 import UIKit
 
-public class GetResponsePushNotificationService {
-    public static let shared = GetResponsePushNotificationService()
-    
+public class GetResponseSDK {
+    public static let shared = GetResponseSDK()
+    private let notifications = GetResponsePushNotificationService()
+    private let events = GetResponseEventsService()
     private var secret: String?
     private var applicationId: String?
     private var entrypoint: String?
     private var instalationUUID: String!
-    
+    private var settings: GetResponseSDKSettings!
     private let installationUUIDKey = "installationUUID"
     
     private init() {
@@ -20,62 +21,62 @@ public class GetResponsePushNotificationService {
         }
     }
     
-    public func configure(secret: String, applicationId: String, entrypoint: String) {
+    public func configure(secret: String, applicationId: String, entrypoint: String, settings: GetResponseSDKSettings = GetResponseSDKSettings()) async throws {
         self.secret = secret
         self.applicationId = applicationId
         self.entrypoint = entrypoint
-    }
-
-    public func consent(lang: String, externalId: String, email: String?, fcmToken: String) async throws {
-        checkConfiguration()
-        let consent = ConsentModel(lang: lang, externalId: externalId, email: email, fcmToken: fcmToken, platform: "ios")
-        guard let consentJson = try? JSONEncoder().encode(consent) else {
-            print("Error: Trying to convert model to JSON data")
+        self.settings = settings
+        let presets = try await initSDK()
+        guard let presets = presets else {
             return
         }
-        let token = try APIHelpers.shared.createJWTToken(secret: secret!, applicationId: applicationId!, instalationUUID: instalationUUID)
-        _ = try await APIHelpers.shared.postData(apiEndpoint: "\(entrypoint!)/consents", jsonData: consentJson, token: token)
+        if settings.enablePushNotifications {
+            print(presets.webevents)
+            if presets.notificationsAvailable  {
+                notifications.configure(instalationUUID: instalationUUID, secret: secret, applicationId: applicationId, endpoint: presets.mobilepush!.endpoint)
+            } else {
+                print("Push notifications are not available")
+            }
+        }
+        if settings.enableWebEvents {
+            if presets.webEventsAvailable  {
+                events.configure(instalationUUID: instalationUUID, shop: presets.webevents!.options.shop.id, endpoint: presets.webevents!.endpoint, user: presets.webevents!.options.user)
+            } else {
+                print("Events are not available")
+            }
+        }
     }
     
-    public func removeConsent() async throws {
+    public var notificationsService: GetResponsePushNotificationService {
         checkConfiguration()
-        let delete = DeleteModel(instalationUUID: instalationUUID)
-        guard let deleteJson = try? JSONEncoder().encode(delete) else {
-            print("Error: Trying to convert model to JSON data")
-            return
+        if settings!.enablePushNotifications {
+            return notifications
+        } else {
+            fatalError("Push notifications are disabled")
         }
-        let token = try APIHelpers.shared.createJWTToken(secret: secret!, applicationId: applicationId!, instalationUUID: instalationUUID)
-        _ = try await APIHelpers.shared.deleteData(apiEndpoint: "\(entrypoint!)/consents", jsonData: deleteJson, token: token)
     }
     
-    public func handleIncomingNotification(userInfo: [AnyHashable: Any], eventType: EventType) throws -> NotificationHandler? {
-        guard let issuer = userInfo["issuer"] as? String, issuer == "getresponse" else {
-            print("Not a GetResponse notification")
-            return nil
+    public var eventsService: GetResponseEventsService {
+        checkConfiguration()
+        if settings!.enableWebEvents {
+            return events
+        } else {
+            fatalError("Push notifications are disabled")
         }
-        if let statsUrl = userInfo["stats_url"] as? String {
-            APIHelpers.shared.synchonousAction(apiEndpoint: eventType.getEventUrl(url: statsUrl))
-        }
-        if userInfo["redirect_type"] as? String == "url", let redirectDestination = userInfo["redirect_destination"] as? String,
-        let redirectUrl = URL(string: redirectDestination) {
-            UIApplication.shared.open(redirectUrl, options: [:], completionHandler: nil)
-        }
-        return try NotificationHandler(userInfo: userInfo)
     }
     
     private func checkConfiguration() {
         assert(secret != nil && applicationId != nil && entrypoint != nil, "Method configure(secret: String, applicationId: String, entrypoint: String) has to be called first")
     }
     
-    public static func handleIncomingNotification(userInfo: [AnyHashable: Any], eventType: EventType) throws -> NotificationHandler?  {
-        guard let issuer = userInfo["issuer"] as? String, issuer == "getresponse" else {
-            print("Not a GetResponse notification")
+    
+    private func initSDK() async throws -> PresetsModel? {
+        let token = try APIHelpers.shared.createJWTToken(secret: secret!, applicationId: applicationId!, installationUUID: instalationUUID)
+        print("token: \(token)")
+        let result = try await APIHelpers.shared.getData(apiEndpoint: "\(entrypoint!)/presets", jsonData: nil, token: token)
+        guard let result = result.0 else {
             return nil
         }
-        if let statsUrl = userInfo["stats_url"] as? String {
-            APIHelpers.shared.synchonousAction(apiEndpoint: eventType.getEventUrl(url: statsUrl))
-        }
-        return try NotificationHandler(userInfo: userInfo)
+        return try JSONDecoder().decode(PresetsModel.self, from: result)
     }
-    
 }
