@@ -40,7 +40,7 @@ public class GetResponseSDK {
         }
         if settings.enableWebEvents {
             if presets.webEventsAvailable  {
-                events.configure(instalationUUID: instalationUUID, shop: presets.webevents!.options.shop.id, endpoint: presets.webevents!.endpoint, user: presets.webevents!.options.user)
+                events.configure(instalationUUID: instalationUUID, shop: presets.webevents!.options.shop!, endpoint: presets.webevents!.endpoint, user: presets.webevents!.options.user)
             } else {
                 print("Events are not available")
             }

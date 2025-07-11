@@ -17,7 +17,7 @@ public enum ActionType {
     case deeplink
 }
 
-fileprivate let keysToFilterCustomData = ["aps", "issuer", "redirect_type", "redirect_destination", "stats_url", "google.c.fid", "fcm_options", "gcm.message_id", "google.c.a.e", "google.c.sender.id"]
+fileprivate let keysToFilterCustomData = ["aps", "issuer", "redirect_type", "redirect_destination", "stats_url", "google.c.fid", "fcm_options", "gcm.message_id", "google.c.a.e", "google.c.sender.id", "actions"]
 
 public struct NotificationHandler {
     public let title: String
@@ -27,6 +27,7 @@ public struct NotificationHandler {
     public let redirectionURL: String?
     public let deeplinkPath: String?
     public let customData: [String: String]
+    public let actions: [Action]
     
     
     internal init(userInfo: [AnyHashable: Any]) throws {
@@ -60,6 +61,15 @@ public struct NotificationHandler {
         }
         self.title = title
         self.body = body
+        
+        if let actionsJsonString = userInfo["actions"] as? String,
+           let actionsData = try? JSONSerialization.jsonObject(with: actionsJsonString.data(using: .utf8) ?? Data()) as? [[AnyHashable: Any]] {
+            self.actions = actionsData.compactMap { actionData in
+                try? Action(data: actionData)
+            }
+        } else {
+            self.actions = []
+        }
         var data = [String: String]()
         var filteredKeys = [String]()
         for key in userInfo.keys {
@@ -71,5 +81,34 @@ public struct NotificationHandler {
             data[key as String] = userInfo[key] as? String
         }
         self.customData = data
+    }
+}
+
+public class Action {
+    public let identifier: String
+    public let redirectDestination: String?
+    public let redirectType: ActionType
+    public let text: String
+    
+    public init(data: [AnyHashable: Any]) throws {
+        guard let identifier = data["identifier"] as? String,
+              let redirectTypeString = data["redirect_type"] as? String,
+              let text = data["text"] as? String else {
+            throw NotificationHandlerError.invalidPayload
+        }
+        
+        self.identifier = identifier
+        self.redirectDestination = data["redirect_destination"] as? String
+        
+        switch redirectTypeString {
+        case "application":
+            self.redirectType = .openApp
+        case "deep_link":
+            self.redirectType = .deeplink
+        default:
+            self.redirectType = .openURL
+        }
+        
+        self.text = text
     }
 }
