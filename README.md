@@ -13,14 +13,14 @@ https://www.getresponse.com/help/mobile-apps-technical-documentation-for-ios.htm
 First, configure SDK:
 
 ```swift
-GetResponsePushNotificationService.shared.configure(secret: /*secret*/, applicationId:/*applicationId*/, entrypoint: /*entrypoint*/)
+GetResponseSDK.shared.configure(secret: /*secret*/, applicationId:/*applicationId*/, entrypoint: /*entrypoint*/, settings: GetResponseSDKSettings(enablePushNotifications: true, enableWebEvents: false))
 
 ```
 
 Send device token:
 
 ```swift
-await GetResponsePushNotificationService.shared.consent(lang:/*LanguageCode*/, externalId: /*externalId*/, email: /*email*/, fcmToken: notificationManager.token!)
+await GetResponseSDK.shared.notificationsService.consent(lang:/*LanguageCode*/, externalId: /*externalId*/, email: /*email*/, fcmToken: notificationManager.token!)
 
 ```
 
@@ -43,7 +43,7 @@ Handle notification:
       withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let userInfo = response.notification.request.content.userInfo
-        let notification = try? GetResponsePushNotificationService.shared.handleIncomingNotification(userInfo: userInfo, eventType: EventType.clicked)
+        let notification = try? GetResponseSDK.shared.notificationsService.handleIncomingNotification(userInfo: userInfo, eventType: EventType.clicked)
         completionHandler()
 ```
 
@@ -57,7 +57,7 @@ class NotificationService: UNNotificationServiceExtension {
         self.contentHandler = contentHandler
         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
         if let bestAttemptContent = bestAttemptContent {
-            let _ = try? GetResponsePushNotificationService.handleIncomingNotification(userInfo: bestAttemptContent.userInfo, eventType: EventType.showed)
+            let _ = try? GetResponseSDK.shared.notificationsService.handleIncomingNotification(userInfo: bestAttemptContent.userInfo, eventType: EventType.showed)
             Messaging.serviceExtension().populateNotificationContent(bestAttemptContent, withContentHandler: contentHandler)
         }
     }
@@ -67,7 +67,7 @@ class NotificationService: UNNotificationServiceExtension {
 To remove token use:
 
 ```swift
-await GetResponsePushNotificationService.shared.removeConsent()
+await GetResponseSDK.shared.notificationsService.removeConsent()
 ```
 
 
