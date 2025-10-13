@@ -3,7 +3,7 @@ import SwiftJWT
 
 struct GRClaims: Claims {
     let iss: String
-    let iat: Date
-    let exp: Date
+    let iat: Int
+    let exp: Int
     let aud: String
 }
